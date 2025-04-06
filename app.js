@@ -1,92 +1,32 @@
-require("dotenv").config();
-const { createBot, createProvider, createFlow, addKeyword } = require('@bot-whatsapp/bot')
+const express = require('express');
+const bodyParser = require('body-parser');
+const twilio = require('twilio');
+const app = express();
 
-const TwilioProvider = require('@bot-whatsapp/provider/twilio')
-const MockAdapter = require('@bot-whatsapp/database/mock')
+app.use(bodyParser.urlencoded({ extended: false }));
 
-/**
- * Aqui declaramos los flujos hijos, los flujos se declaran de atras para adelante, es decir que si tienes un flujo de este tipo:
- *
- *          Menu Principal
- *           - SubMenu 1
- *             - Submenu 1.1
- *           - Submenu 2
- *             - Submenu 2.1
- *
- * Primero declaras los submenus 1.1 y 2.1, luego el 1 y 2 y al final el principal.
- */
+// Webhook de Twilio para mensajes entrantes
+app.post('/twilio-hook', (req, res) => {
+    const { From, To, Body } = req.body;
 
-const flowSecundario = addKeyword(['2', 'siguiente']).addAnswer(['📄 Aquí tenemos el flujo secundario'])
+    console.log('📨 Mensaje recibido:');
+    console.log(`De: ${From}`);
+    console.log(`Para: ${To}`);
+    console.log(`Texto: ${Body}`);
 
-const flowDocs = addKeyword(['doc', 'documentacion', 'documentación']).addAnswer(
-    [
-        '📄 Aquí encontras las documentación recuerda que puedes mejorarla',
-        'https://bot-whatsapp.netlify.app/',
-        '\n*2* Para siguiente paso.',
-    ],
-    null,
-    null,
-    [flowSecundario]
-)
+    // Creando la respuesta TwiML
+    const twiml = new twilio.twiml.MessagingResponse();
 
-const flowTuto = addKeyword(['tutorial', 'tuto']).addAnswer(
-    [
-        '🙌 Aquí encontras un ejemplo rapido',
-        'https://bot-whatsapp.netlify.app/docs/example/',
-        '\n*2* Para siguiente paso.',
-    ],
-    null,
-    null,
-    [flowSecundario]
-)
+    // Respuesta que se enviará al número de WhatsApp o SMS
+    twiml.message(`Gracias por tu mensaje: "${Body}". Estamos procesando tu solicitud.`);
 
-const flowGracias = addKeyword(['gracias', 'grac']).addAnswer(
-    [
-        '🚀 Puedes aportar tu granito de arena a este proyecto',
-        '[*opencollective*] https://opencollective.com/bot-whatsapp',
-        '[*buymeacoffee*] https://www.buymeacoffee.com/leifermendez',
-        '[*patreon*] https://www.patreon.com/leifermendez',
-        '\n*2* Para siguiente paso.',
-    ],
-    null,
-    null,
-    [flowSecundario]
-)
+    // Enviar la respuesta TwiML
+    res.set('Content-Type', 'text/xml');
+    res.send(twiml.toString());
+});
 
-const flowDiscord = addKeyword(['discord']).addAnswer(
-    ['🤪 Únete al discord', 'https://link.codigoencasa.com/DISCORD', '\n*2* Para siguiente paso.'],
-    null,
-    null,
-    [flowSecundario]
-)
-
-const flowPrincipal = addKeyword(['hola', 'ole', 'alo'])
-    .addAnswer('🙌 Hola bienvenido a este *Chatbot*')
-    .addAnswer(
-        [
-            'te comparto los siguientes links de interes sobre el proyecto',
-            '👉 *doc* para ver la documentación',
-            '👉 *gracias*  para ver la lista de videos',
-            '👉 *discord* unirte al discord',
-        ],
-        null,
-        null,
-        [flowDocs, flowGracias, flowTuto, flowDiscord]
-    )
-
-const main = async () => {
-    const adapterDB = new MockAdapter()
-    const adapterFlow = createFlow([flowPrincipal])
-    const adapterProvider = createProvider(TwilioProvider, {
-        accountSid: process.env.TWILIO_ACCOUNT_SID,
-        authToken: process.env.TWILIO_AUTH_TOKEN,
-        vendorNumber: process.env.TWILIO_VENDOR_NUMBER,
-    });
-    createBot({
-        flow: adapterFlow,
-        provider: adapterProvider,
-        database: adapterDB,
-    })
-}
-
-main()
+// Inicia el servidor en el puerto 3000
+const PORT = 3000;
+app.listen(PORT, () => {
+    console.log(`✅ Webhook de Twilio escuchando en http://localhost:${PORT}/twilio-hook`);
+});
